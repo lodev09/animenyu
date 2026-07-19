@@ -8,4 +8,4 @@ xcuserdata/
 *.xcodeproj
 
 # Local settings
-.claude/settings.local.json
+.claude/

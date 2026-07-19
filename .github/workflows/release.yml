@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: brew install xcodegen create-dmg
+
+      - name: Import signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERTIFICATE }}
+          p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+
+      - name: Set version from tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Build
+        run: |
+          xcodebuild -project AniMenyu.xcodeproj -scheme AniMenyu -configuration Release \
+            -derivedDataPath build \
+            MARKETING_VERSION="$VERSION" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            OTHER_CODE_SIGN_FLAGS="--timestamp" \
+            build
+
+      - name: Create DMG
+        run: |
+          mkdir dist
+          cp -R "build/Build/Products/Release/AniMenyu.app" dist/
+          # create-dmg is flaky on headless runners; retry a few times
+          for i in 1 2 3; do
+            create-dmg \
+              --volname "AniMenyu" \
+              --window-pos 200 120 \
+              --window-size 540 360 \
+              --icon-size 100 \
+              --icon "AniMenyu.app" 140 160 \
+              --hide-extension "AniMenyu.app" \
+              --app-drop-link 400 160 \
+              "AniMenyu-$VERSION.dmg" dist/ && break
+          done
+          test -f "AniMenyu-$VERSION.dmg"
+
+      - name: Sign DMG
+        run: codesign --force --sign "Developer ID Application" "AniMenyu-$VERSION.dmg"
+
+      - name: Notarize and staple
+        run: |
+          xcrun notarytool submit "AniMenyu-$VERSION.dmg" \
+            --apple-id "${{ secrets.APPLE_ID }}" \
+            --password "${{ secrets.APPLE_APP_PASSWORD }}" \
+            --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+            --wait
+          xcrun stapler staple "AniMenyu-$VERSION.dmg"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: AniMenyu-*.dmg
+          generate_release_notes: true
