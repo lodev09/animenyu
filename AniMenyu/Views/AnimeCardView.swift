@@ -9,9 +9,8 @@ struct AnimeCardView: View {
 
     static let accent = Color(red: 0.91, green: 0.37, blue: 0.46) // AniList pink
     static let width: CGFloat = 85
-    static let coverHeight: CGFloat = 115
+    static let height: CGFloat = 120
     static let barHeight: CGFloat = 40
-    static var height: CGFloat { coverHeight + barHeight }
 
     var body: some View {
         ZStack(alignment: .bottom) {
