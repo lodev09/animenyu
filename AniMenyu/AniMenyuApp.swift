@@ -17,5 +17,9 @@ struct AniMenyuApp: App {
             AboutView()
         }
         .windowResizability(.contentSize)
+
+        Settings {
+            SettingsView()
+        }
     }
 }

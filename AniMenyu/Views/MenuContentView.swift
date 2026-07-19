@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuContentView: View {
     @EnvironmentObject private var store: AniListStore
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     private static let columns = 5
     private static let spacing: CGFloat = 16
@@ -70,6 +71,12 @@ struct MenuContentView: View {
                     }
                 }
                 Section {
+                    Button {
+                        NSApp.activate(ignoringOtherApps: true)
+                        openSettings()
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
                     Button {
                         NSWorkspace.shared.open(URL(string: "https://anilist.co/home")!)
                     } label: {
