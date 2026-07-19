@@ -10,7 +10,7 @@ struct AnimeCardView: View {
     static let accent = Color(red: 0.91, green: 0.37, blue: 0.46) // AniList pink
     static let width: CGFloat = 85
     static let height: CGFloat = 120
-    static let barHeight: CGFloat = 40
+    static let barHeight: CGFloat = 44
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -18,7 +18,7 @@ struct AnimeCardView: View {
             infoBar
         }
         .frame(width: Self.width, height: Self.height)
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .animation(.easeOut(duration: 0.12), value: isHoveringBar)
         .popover(isPresented: $showInfo, arrowEdge: .trailing) {
             AnimeInfoPopover(entry: entry)
@@ -76,7 +76,7 @@ struct AnimeCardView: View {
                 if entry.isBehind {
                     Rectangle()
                         .fill(Self.accent)
-                        .frame(height: 2.5)
+                        .frame(height: 4)
                 }
             }
             .frame(height: Self.barHeight)
