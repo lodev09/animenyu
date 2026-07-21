@@ -64,12 +64,14 @@ final class AniListStore: ObservableObject {
         }
     }
 
-    func bump(_ entry: AnimeEntry) async {
+    func adjust(_ entry: AnimeEntry, by delta: Int) async {
         guard let client, let index = entries.firstIndex(where: { $0.id == entry.id }) else { return }
         let previous = entries[index].progress
-        entries[index].progress = previous + 1
+        let target = max(0, previous + delta)
+        guard target != previous else { return }
+        entries[index].progress = target
         do {
-            let saved = try await client.saveProgress(entryId: entry.id, progress: previous + 1)
+            let saved = try await client.saveProgress(entryId: entry.id, progress: target)
             if let i = entries.firstIndex(where: { $0.id == entry.id }) {
                 entries[i].progress = saved
             }

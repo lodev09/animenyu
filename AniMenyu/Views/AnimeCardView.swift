@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AnimeCardView: View {
     let entry: AnimeEntry
-    let onBump: () -> Void
+    let onAdjust: (Int) -> Void
 
     @State private var isHoveringBar = false
     @State private var showInfo = false
@@ -21,7 +21,7 @@ struct AnimeCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .animation(.easeOut(duration: 0.12), value: isHoveringBar)
         .popover(isPresented: $showInfo, arrowEdge: .trailing) {
-            AnimeInfoPopover(entry: entry)
+            AnimeInfoPopover(entry: entry, onAdjust: onAdjust)
         }
     }
 
@@ -48,7 +48,7 @@ struct AnimeCardView: View {
     // MARK: Bottom bar
 
     private var infoBar: some View {
-        Button(action: onBump) {
+        Button(action: { onAdjust(1) }) {
             ZStack(alignment: .bottom) {
                 VStack(spacing: 3) {
                     if isHoveringBar {
@@ -94,6 +94,7 @@ struct AnimeCardView: View {
 
 struct AnimeInfoPopover: View {
     let entry: AnimeEntry
+    let onAdjust: (Int) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -101,9 +102,17 @@ struct AnimeInfoPopover: View {
                 .font(.system(size: 13, weight: .semibold))
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(progressText)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Text(progressText)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                StepButton(systemImage: "minus", color: AnimeCardView.accent) { onAdjust(-1) }
+                    .disabled(entry.progress == 0)
+                    .help("Undo watched episode")
+                StepButton(systemImage: "plus", color: .blue) { onAdjust(1) }
+                    .help("Mark episode \(entry.progress + 1) as watched")
+            }
             if let url = entry.media.siteURL {
                 Link(destination: url) {
                     Label("Open on AniList", systemImage: "arrow.up.right.square")
@@ -120,6 +129,34 @@ struct AnimeInfoPopover: View {
             return "Progress: \(entry.progress)/\(total)"
         }
         return "Progress: \(entry.progress)"
+    }
+}
+
+private struct StepButton: View {
+    let systemImage: String
+    let color: Color
+    let action: () -> Void
+
+    @State private var isHovering = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(isHovering ? .white : Color.secondary)
+                .frame(width: 18, height: 18)
+                .background {
+                    ZStack {
+                        Circle().fill(.quaternary.opacity(0.6))
+                        Circle().fill(color).opacity(isHovering ? 1 : 0)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.35)
+        .onHover { isHovering = $0 && isEnabled }
+        .animation(.easeOut(duration: 0.12), value: isHovering)
     }
 }
 

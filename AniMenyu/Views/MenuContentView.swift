@@ -148,8 +148,8 @@ struct MenuContentView: View {
                         spacing: Self.spacing
                     ) {
                         ForEach(store.entries) { entry in
-                            AnimeCardView(entry: entry) {
-                                Task { await store.bump(entry) }
+                            AnimeCardView(entry: entry) { delta in
+                                Task { await store.adjust(entry, by: delta) }
                             }
                         }
                     }
