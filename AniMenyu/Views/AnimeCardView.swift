@@ -98,6 +98,11 @@ struct AnimeInfoPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if entry.isBehind {
+                Text("\(entry.episodesBehind) episode\(entry.episodesBehind == 1 ? "" : "s") behind")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AnimeCardView.accent)
+            }
             Text(entry.media.title)
                 .font(.system(size: 13, weight: .semibold))
                 .multilineTextAlignment(.leading)

@@ -11,10 +11,12 @@ struct AnimeEntry: Identifiable, Equatable {
         return media.episodes
     }
 
-    var isBehind: Bool {
-        guard let aired = airedEpisodes else { return false }
-        return progress < aired
+    var episodesBehind: Int {
+        guard let aired = airedEpisodes else { return 0 }
+        return max(aired - progress, 0)
     }
+
+    var isBehind: Bool { episodesBehind > 0 }
 }
 
 struct Media: Equatable {
