@@ -27,6 +27,7 @@ struct Media: Equatable {
     let episodes: Int?
     let nextEpisode: Int?
     let airingAt: Date?
+    let isReleasing: Bool
 }
 
 // MARK: - GraphQL payloads

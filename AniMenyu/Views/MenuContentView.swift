@@ -5,19 +5,54 @@ struct MenuContentView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
 
+    @AppStorage("showAllPast") private var showAllPast = false
+
     private static let columns = 5
     private static let spacing: CGFloat = 16
     private static let padding: CGFloat = 16
-    private static let width: CGFloat = CGFloat(columns) * AnimeCardView.width
+    private static let headerHeight: CGFloat = 16
+    private static let headerSpacing: CGFloat = 8
+    private static let hintHeight: CGFloat = 16
+    private static let width: CGFloat = CGFloat(columns) * AnimeCardView.Size.regular.width
         + CGFloat(columns - 1) * spacing + 2 * padding
 
-    // Fit content exactly, up to 4 rows of cards
+    private static func columnCount(for size: AnimeCardView.Size) -> Int {
+        let content = width - 2 * padding
+        return max(1, Int((content + spacing) / (size.width + spacing)))
+    }
+
+    private static func sectionHeight(count: Int, size: AnimeCardView.Size) -> CGFloat {
+        let rows = (count + columnCount(for: size) - 1) / columnCount(for: size)
+        return headerHeight + headerSpacing
+            + CGFloat(rows) * size.height + CGFloat(rows - 1) * spacing
+    }
+
+    private var visiblePast: [AnimeEntry] {
+        showAllPast ? store.pastEntries : store.trackedPastEntries
+    }
+
+    // Fit content exactly, up to 4 rows of regular cards
     private var gridHeight: CGFloat {
         guard !store.entries.isEmpty else { return 160 }
-        let rows = min(4, (store.entries.count + Self.columns - 1) / Self.columns)
-        var height = CGFloat(rows) * AnimeCardView.height + CGFloat(rows - 1) * Self.spacing + 2 * Self.padding
-        if store.errorMessage != nil { height += 42 }
-        return height
+        let regular = AnimeCardView.Size.regular
+        var height = 2 * Self.padding
+        var sections = 0
+        if !store.airingEntries.isEmpty {
+            height += Self.sectionHeight(count: store.airingEntries.count, size: regular)
+            sections += 1
+        }
+        if !store.pastEntries.isEmpty {
+            height += visiblePast.isEmpty
+                ? Self.headerHeight + Self.headerSpacing + Self.hintHeight
+                : Self.sectionHeight(count: visiblePast.count, size: .compact)
+            sections += 1
+        }
+        height += CGFloat(max(sections - 1, 0)) * Self.spacing
+        if store.errorMessage != nil { height += 42 + Self.spacing }
+
+        let maxHeight = 4 * regular.height + 3 * Self.spacing + 2 * Self.padding
+            + Self.headerHeight + Self.headerSpacing
+        return min(height, maxHeight)
     }
 
     var body: some View {
@@ -119,7 +154,7 @@ struct MenuContentView: View {
 
     private var grid: some View {
         ScrollView {
-            VStack(spacing: Self.spacing) {
+            VStack(alignment: .leading, spacing: Self.spacing) {
                 if let error = store.errorMessage {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .font(.system(size: 11))
@@ -140,23 +175,89 @@ struct MenuContentView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 48)
                 } else {
-                    LazyVGrid(
-                        columns: Array(
-                            repeating: GridItem(.fixed(AnimeCardView.width), spacing: Self.spacing),
-                            count: Self.columns
-                        ),
-                        spacing: Self.spacing
-                    ) {
-                        ForEach(store.entries) { entry in
-                            AnimeCardView(entry: entry) { delta in
-                                Task { await store.adjust(entry, by: delta) }
-                            }
-                        }
+                    if !store.airingEntries.isEmpty {
+                        airingSection
+                    }
+                    if !store.pastEntries.isEmpty {
+                        pastSection
                     }
                 }
             }
             .padding(Self.padding)
         }
         .frame(height: gridHeight)
+    }
+
+    private func cardGrid(
+        entries: [AnimeEntry],
+        size: AnimeCardView.Size,
+        tracking: Bool = false
+    ) -> some View {
+        LazyVGrid(
+            columns: Array(
+                repeating: GridItem(.fixed(size.width), spacing: Self.spacing),
+                count: Self.columnCount(for: size)
+            ),
+            alignment: .leading,
+            spacing: Self.spacing
+        ) {
+            ForEach(entries) { entry in
+                AnimeCardView(
+                    entry: entry,
+                    size: size,
+                    isTracked: tracking && store.isTracked(entry),
+                    onToggleTracked: tracking ? { store.toggleTracked(entry) } : nil
+                ) { delta in
+                    Task { await store.adjust(entry, by: delta) }
+                }
+            }
+        }
+    }
+
+    private var airingSection: some View {
+        VStack(alignment: .leading, spacing: Self.headerSpacing) {
+            sectionLabel("Airing")
+                .frame(height: Self.headerHeight)
+            cardGrid(entries: store.airingEntries, size: .regular)
+        }
+    }
+
+    private var pastSection: some View {
+        VStack(alignment: .leading, spacing: Self.headerSpacing) {
+            HStack(spacing: 4) {
+                sectionLabel("Continuing")
+                Text("\(visiblePast.count)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                Spacer()
+                Button { showAllPast.toggle() } label: {
+                    Text(showAllPast ? "Show tracked" : "Show all")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(showAllPast ? AnimeCardView.accent : Color.secondary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(showAllPast
+                    ? "Show only anime you track"
+                    : "Show every finished anime in your list so you can track it")
+            }
+            .frame(height: Self.headerHeight)
+
+            if visiblePast.isEmpty {
+                Text("Nothing tracked yet — Show all, then bookmark a title.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(height: Self.hintHeight)
+            } else {
+                cardGrid(entries: visiblePast, size: .compact, tracking: true)
+            }
+        }
+    }
+
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .semibold))
+            .textCase(.uppercase)
+            .foregroundStyle(.secondary)
     }
 }

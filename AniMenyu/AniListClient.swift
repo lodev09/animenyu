@@ -61,8 +61,7 @@ struct AniListClient {
 
         var seen = Set<Int>()
         var entries: [AnimeEntry] = []
-        let releasing = payload.collection.lists.flatMap(\.entries).filter { $0.media.status == "RELEASING" }
-        for raw in releasing where seen.insert(raw.id).inserted {
+        for raw in payload.collection.lists.flatMap(\.entries) where seen.insert(raw.id).inserted {
             let media = raw.media
             entries.append(AnimeEntry(
                 id: raw.id,
@@ -74,13 +73,14 @@ struct AniListClient {
                     siteURL: media.siteUrl.flatMap(URL.init(string:)),
                     episodes: media.episodes,
                     nextEpisode: media.nextAiringEpisode?.episode,
-                    airingAt: media.nextAiringEpisode.map { Date(timeIntervalSince1970: TimeInterval($0.airingAt)) }
+                    airingAt: media.nextAiringEpisode.map { Date(timeIntervalSince1970: TimeInterval($0.airingAt)) },
+                    isReleasing: media.status == "RELEASING"
                 )
             ))
         }
 
         // Airing soonest first, then the rest alphabetically
-        return entries.sorted { a, b in
+        let airing = entries.filter(\.media.isReleasing).sorted { a, b in
             switch (a.media.airingAt, b.media.airingAt) {
             case let (x?, y?): return x < y
             case (_?, nil): return true
@@ -88,6 +88,8 @@ struct AniListClient {
             case (nil, nil): return a.media.title < b.media.title
             }
         }
+        let past = entries.filter { !$0.media.isReleasing }.sorted { $0.media.title < $1.media.title }
+        return airing + past
     }
 
     func saveProgress(entryId: Int, progress: Int) async throws -> Int {

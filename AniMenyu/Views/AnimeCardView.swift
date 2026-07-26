@@ -1,25 +1,45 @@
 import SwiftUI
 
 struct AnimeCardView: View {
+    enum Size {
+        case regular, compact
+
+        var width: CGFloat { self == .regular ? 85 : 68 }
+        var height: CGFloat { self == .regular ? 120 : 96 }
+        var barHeight: CGFloat { self == .regular ? 44 : 34 }
+        var primaryFontSize: CGFloat { self == .regular ? 11 : 10 }
+        var secondaryFontSize: CGFloat { self == .regular ? 10.5 : 9.5 }
+        var behindBarHeight: CGFloat { self == .regular ? 4 : 3 }
+    }
+
     let entry: AnimeEntry
+    var size: Size = .regular
+    var isTracked = false
+    var onToggleTracked: (() -> Void)?
     let onAdjust: (Int) -> Void
 
     @State private var isHoveringBar = false
+    @State private var isHoveringCard = false
     @State private var showInfo = false
 
     static let accent = Color(red: 0.91, green: 0.37, blue: 0.46) // AniList pink
-    static let width: CGFloat = 85
-    static let height: CGFloat = 120
-    static let barHeight: CGFloat = 44
 
     var body: some View {
         ZStack(alignment: .bottom) {
             cover
             infoBar
         }
-        .frame(width: Self.width, height: Self.height)
+        .overlay(alignment: .topTrailing) {
+            if onToggleTracked != nil, isTracked || isHoveringCard {
+                trackBadge
+                    .padding(4)
+            }
+        }
+        .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .onHover { isHoveringCard = $0 }
         .animation(.easeOut(duration: 0.12), value: isHoveringBar)
+        .animation(.easeOut(duration: 0.12), value: isHoveringCard)
         .popover(isPresented: $showInfo, arrowEdge: .trailing) {
             AnimeInfoPopover(entry: entry, onAdjust: onAdjust)
         }
@@ -39,10 +59,25 @@ struct AnimeCardView: View {
                     .fill(.quaternary)
             }
         }
-        .frame(width: Self.width, height: Self.height)
+        .frame(width: size.width, height: size.height)
         .clipped()
         .contentShape(Rectangle())
         .onTapGesture { showInfo = true }
+    }
+
+    // MARK: Track badge
+
+    private var trackBadge: some View {
+        Button { onToggleTracked?() } label: {
+            Image(systemName: isTracked ? "bookmark.fill" : "bookmark")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(isTracked ? Self.accent : .white)
+                .frame(width: 18, height: 18)
+                .background(Circle().fill(.black.opacity(0.55)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(isTracked ? "Stop tracking" : "Track this anime")
     }
 
     // MARK: Bottom bar
@@ -53,21 +88,21 @@ struct AnimeCardView: View {
                 VStack(spacing: 3) {
                     if isHoveringBar {
                         Text("\(entry.progress) +")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: size.primaryFontSize + 1, weight: .bold))
                             .foregroundStyle(.white)
                     } else if let next = entry.media.nextEpisode, let airingAt = entry.media.airingAt {
                         Text("Ep \(next)")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: size.primaryFontSize, weight: .semibold))
                             .foregroundStyle(.white)
                         CountdownText(date: airingAt)
-                            .font(.system(size: 10.5))
+                            .font(.system(size: size.secondaryFontSize))
                             .foregroundStyle(.white)
                     } else {
                         Text("Ep \(entry.progress)\(entry.media.episodes.map { " / \($0)" } ?? "")")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: size.primaryFontSize, weight: .semibold))
                             .foregroundStyle(.white)
                         Text("Finished")
-                            .font(.system(size: 10.5))
+                            .font(.system(size: size.secondaryFontSize))
                             .foregroundStyle(.white)
                     }
                 }
@@ -76,10 +111,10 @@ struct AnimeCardView: View {
                 if entry.isBehind {
                     Rectangle()
                         .fill(Self.accent)
-                        .frame(height: 4)
+                        .frame(height: size.behindBarHeight)
                 }
             }
-            .frame(height: Self.barHeight)
+            .frame(height: size.barHeight)
             .background(.black.opacity(0.5))
             .contentShape(Rectangle())
         }

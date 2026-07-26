@@ -9,7 +9,24 @@ final class AniListStore: ObservableObject {
     @Published var errorMessage: String?
     @Published private(set) var token: String?
 
+    @Published private(set) var trackedIDs: Set<Int> = []
+
     var isAuthenticated: Bool { token != nil }
+
+    var airingEntries: [AnimeEntry] { entries.filter(\.media.isReleasing) }
+    var pastEntries: [AnimeEntry] { entries.filter { !$0.media.isReleasing } }
+    var trackedPastEntries: [AnimeEntry] { pastEntries.filter(isTracked) }
+
+    private static let trackedKey = "trackedMediaIDs"
+
+    func isTracked(_ entry: AnimeEntry) -> Bool { trackedIDs.contains(entry.media.id) }
+
+    func toggleTracked(_ entry: AnimeEntry) {
+        if trackedIDs.remove(entry.media.id) == nil {
+            trackedIDs.insert(entry.media.id)
+        }
+        UserDefaults.standard.set(Array(trackedIDs), forKey: Self.trackedKey)
+    }
 
     private var userId: Int?
     private var refreshTimer: Timer?
@@ -20,6 +37,7 @@ final class AniListStore: ObservableObject {
 
     init() {
         token = Keychain.load()
+        trackedIDs = Set(UserDefaults.standard.array(forKey: Self.trackedKey) as? [Int] ?? [])
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 900, repeats: true) { _ in
             Task { @MainActor in await self.refresh() }
         }
