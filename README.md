@@ -2,6 +2,8 @@
 
 A sleek macOS menu bar app for tracking your currently airing anime on [AniList](https://anilist.co).
 
+<img alt="NeoTorrent" src="preview.png" height="500" />
+
 ## Features
 
 - 🍥 Lives in your menu bar — no Dock icon
