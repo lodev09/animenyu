@@ -8,6 +8,8 @@ final class AniListStore: ObservableObject {
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
     @Published private(set) var token: String?
+    /// Bumped on every refresh so failed cover images retry loading.
+    @Published private(set) var refreshID = 0
 
     @Published private(set) var trackedIDs: Set<Int> = []
 
@@ -67,6 +69,7 @@ final class AniListStore: ObservableObject {
 
     func refresh() async {
         guard let client, !isLoading else { return }
+        refreshID += 1
         isLoading = true
         defer { isLoading = false }
         do {

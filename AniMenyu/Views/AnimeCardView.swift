@@ -14,6 +14,7 @@ struct AnimeCardView: View {
 
     let entry: AnimeEntry
     var size: Size = .regular
+    var reloadToken = 0
     var isTracked = false
     var onToggleTracked: (() -> Void)?
     let onAdjust: (Int) -> Void
@@ -21,6 +22,7 @@ struct AnimeCardView: View {
     @State private var isHoveringBar = false
     @State private var isHoveringCard = false
     @State private var showInfo = false
+    @State private var coverFailed = false
 
     static let accent = Color(red: 0.91, green: 0.37, blue: 0.46) // AniList pink
 
@@ -54,11 +56,18 @@ struct AnimeCardView: View {
                 image
                     .resizable()
                     .scaledToFill()
+                    .onAppear { coverFailed = false }
+            case .failure:
+                Rectangle()
+                    .fill(.quaternary)
+                    .onAppear { coverFailed = true }
             default:
                 Rectangle()
                     .fill(.quaternary)
             }
         }
+        // Recreate the AsyncImage on refresh only if the last load failed
+        .id(coverFailed ? reloadToken : -1)
         .frame(width: size.width, height: size.height)
         .clipped()
         .contentShape(Rectangle())

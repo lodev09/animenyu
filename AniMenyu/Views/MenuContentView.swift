@@ -205,6 +205,7 @@ struct MenuContentView: View {
                 AnimeCardView(
                     entry: entry,
                     size: size,
+                    reloadToken: store.refreshID,
                     isTracked: tracking && store.isTracked(entry),
                     onToggleTracked: tracking ? { store.toggleTracked(entry) } : nil
                 ) { delta in
