@@ -24,6 +24,8 @@ struct Media: Equatable {
     let title: String
     let coverURL: URL?
     let siteURL: URL?
+    let synonyms: [String]
+    let averageScore: Int?
     let episodes: Int?
     let nextEpisode: Int?
     let airingAt: Date?
@@ -77,6 +79,8 @@ struct ListPayload: Decodable {
         let title: Title
         let coverImage: Cover
         let siteUrl: String?
+        let synonyms: [String]?
+        let averageScore: Int?
         let episodes: Int?
         let nextAiringEpisode: Airing?
     }

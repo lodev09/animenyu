@@ -131,6 +131,8 @@ struct AnimeInfoPopover: View {
     let entry: AnimeEntry
     let onAdjust: (Int) -> Void
 
+    @State private var showMoreInfo = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if entry.isBehind {
@@ -142,6 +144,7 @@ struct AnimeInfoPopover: View {
                 .font(.system(size: 13, weight: .semibold))
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
             HStack(spacing: 10) {
                 Text(progressText)
                     .font(.system(size: 12))
@@ -159,6 +162,10 @@ struct AnimeInfoPopover: View {
                         .font(.system(size: 12, weight: .medium))
                 }
             }
+            moreInfoToggle
+            if showMoreInfo {
+                moreInfoSection
+            }
         }
         .padding(14)
         .frame(width: 220, alignment: .leading)
@@ -169,6 +176,58 @@ struct AnimeInfoPopover: View {
             return "Progress: \(entry.progress)/\(total)"
         }
         return "Progress: \(entry.progress)"
+    }
+
+    // MARK: More info
+
+    private var moreInfoToggle: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.15)) { showMoreInfo.toggle() }
+        } label: {
+            HStack(spacing: 4) {
+                Text("More Info")
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .bold))
+                    .rotationEffect(.degrees(showMoreInfo ? 90 : 0))
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.secondary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var moreInfoSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+            InfoDetailRow(label: "Average Score", values: entry.media.averageScore.map { ["\($0)%"] } ?? [])
+            InfoDetailRow(label: "Synonyms", values: entry.media.synonyms)
+        }
+    }
+}
+
+/// Labeled row in the More Info section. Values are selectable/copyable.
+private struct InfoDetailRow: View {
+    let label: String
+    let values: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.tertiary)
+            if values.isEmpty {
+                Text("—")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            } else {
+                Text(values.joined(separator: "\n"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+        }
     }
 }
 

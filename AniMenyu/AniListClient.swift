@@ -35,6 +35,8 @@ struct AniListClient {
               status
               siteUrl
               episodes
+              synonyms
+              averageScore
               title { userPreferred }
               coverImage { extraLarge large }
               nextAiringEpisode { episode airingAt }
@@ -71,6 +73,8 @@ struct AniListClient {
                     title: media.title.userPreferred,
                     coverURL: (media.coverImage.extraLarge ?? media.coverImage.large).flatMap(URL.init(string:)),
                     siteURL: media.siteUrl.flatMap(URL.init(string:)),
+                    synonyms: media.synonyms ?? [],
+                    averageScore: media.averageScore,
                     episodes: media.episodes,
                     nextEpisode: media.nextAiringEpisode?.episode,
                     airingAt: media.nextAiringEpisode.map { Date(timeIntervalSince1970: TimeInterval($0.airingAt)) },
