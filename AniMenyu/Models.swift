@@ -26,6 +26,7 @@ struct Media: Equatable {
     let siteURL: URL?
     let synonyms: [String]
     let averageScore: Int?
+    let seasonYear: Int?
     let episodes: Int?
     let nextEpisode: Int?
     let airingAt: Date?
@@ -81,6 +82,7 @@ struct ListPayload: Decodable {
         let siteUrl: String?
         let synonyms: [String]?
         let averageScore: Int?
+        let seasonYear: Int?
         let episodes: Int?
         let nextAiringEpisode: Airing?
     }

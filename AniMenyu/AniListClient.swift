@@ -37,6 +37,7 @@ struct AniListClient {
               episodes
               synonyms
               averageScore
+              seasonYear
               title { userPreferred }
               coverImage { extraLarge large }
               nextAiringEpisode { episode airingAt }
@@ -75,6 +76,7 @@ struct AniListClient {
                     siteURL: media.siteUrl.flatMap(URL.init(string:)),
                     synonyms: media.synonyms ?? [],
                     averageScore: media.averageScore,
+                    seasonYear: media.seasonYear,
                     episodes: media.episodes,
                     nextEpisode: media.nextAiringEpisode?.episode,
                     airingAt: media.nextAiringEpisode.map { Date(timeIntervalSince1970: TimeInterval($0.airingAt)) },

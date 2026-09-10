@@ -7,6 +7,9 @@ struct MenuContentView: View {
 
     @AppStorage("showAllPast") private var showAllPast = false
 
+    /// Years the user opened; groups start collapsed.
+    @State private var expandedYears: Set<Int?> = []
+
     private static let columns = 5
     private static let spacing: CGFloat = 16
     private static let padding: CGFloat = 16
@@ -31,6 +34,19 @@ struct MenuContentView: View {
         showAllPast ? store.pastEntries : store.trackedPastEntries
     }
 
+    /// Newest year first, unknown year last.
+    private var pastGroups: [(year: Int?, entries: [AnimeEntry])] {
+        Dictionary(grouping: visiblePast, by: \.media.seasonYear)
+            .sorted { ($0.key ?? .min) > ($1.key ?? .min) }
+            .map { (year: $0.key, entries: $0.value) }
+    }
+
+    private func pastGroupHeight(year: Int?, count: Int) -> CGFloat {
+        expandedYears.contains(year)
+            ? Self.sectionHeight(count: count, size: .compact)
+            : Self.headerHeight
+    }
+
     // Fit content exactly, up to 4 rows of regular cards
     private var gridHeight: CGFloat {
         guard !store.entries.isEmpty else { return 160 }
@@ -42,9 +58,15 @@ struct MenuContentView: View {
             sections += 1
         }
         if !store.pastEntries.isEmpty {
-            height += visiblePast.isEmpty
-                ? Self.headerHeight + Self.headerSpacing + Self.hintHeight
-                : Self.sectionHeight(count: visiblePast.count, size: .compact)
+            height += Self.headerHeight + Self.headerSpacing
+            if visiblePast.isEmpty {
+                height += Self.hintHeight
+            } else {
+                let groups = pastGroups
+                height += groups.reduce(0) {
+                    $0 + pastGroupHeight(year: $1.year, count: $1.entries.count)
+                } + CGFloat(groups.count - 1) * Self.spacing
+            }
             sections += 1
         }
         height += CGFloat(max(sections - 1, 0)) * Self.spacing
@@ -250,9 +272,43 @@ struct MenuContentView: View {
                     .foregroundStyle(.secondary)
                     .frame(height: Self.hintHeight)
             } else {
-                cardGrid(entries: visiblePast, size: .compact, tracking: true)
+                VStack(alignment: .leading, spacing: Self.spacing) {
+                    ForEach(pastGroups, id: \.year) { group in
+                        VStack(alignment: .leading, spacing: Self.headerSpacing) {
+                            yearHeader(year: group.year, count: group.entries.count)
+                            if expandedYears.contains(group.year) {
+                                cardGrid(entries: group.entries, size: .compact, tracking: true)
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+
+    private func yearHeader(year: Int?, count: Int) -> some View {
+        let expanded = expandedYears.contains(year)
+        return Button {
+            if expandedYears.remove(year) == nil {
+                expandedYears.insert(year)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 8)
+                sectionLabel(year.map(String.init) ?? "Unknown")
+                    .foregroundStyle(.tertiary)
+                Text("\(count)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                Spacer()
+            }
+            .frame(height: Self.headerHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func sectionLabel(_ title: String) -> some View {
