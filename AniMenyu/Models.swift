@@ -33,6 +33,22 @@ struct Media: Equatable {
     let isReleasing: Bool
 }
 
+/// User-defined link for a title (stream site, download, etc.).
+struct CustomLink: Codable, Equatable, Identifiable {
+    var id = UUID()
+    var name: String
+    var url: URL
+
+    var displayName: String { name.isEmpty ? url.host() ?? url.absoluteString : name }
+
+    /// Parses user input, defaulting to https when no scheme is given.
+    static func url(from text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return nil }
+        return url.scheme == nil ? URL(string: "https://" + trimmed) : url
+    }
+}
+
 // MARK: - GraphQL payloads
 
 struct GraphQLResponse<T: Decodable>: Decodable {

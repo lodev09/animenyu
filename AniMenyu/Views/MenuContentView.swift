@@ -229,7 +229,11 @@ struct MenuContentView: View {
                     size: size,
                     reloadToken: store.refreshID,
                     isTracked: tracking && store.isTracked(entry),
-                    onToggleTracked: tracking ? { store.toggleTracked(entry) } : nil
+                    onToggleTracked: tracking ? { store.toggleTracked(entry) } : nil,
+                    links: Binding(
+                        get: { store.links(for: entry) },
+                        set: { store.setLinks($0, for: entry) }
+                    )
                 ) { delta in
                     Task { await store.adjust(entry, by: delta) }
                 }

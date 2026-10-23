@@ -17,6 +17,7 @@ struct AnimeCardView: View {
     var reloadToken = 0
     var isTracked = false
     var onToggleTracked: (() -> Void)?
+    @Binding var links: [CustomLink]
     let onAdjust: (Int) -> Void
 
     @State private var isHoveringBar = false
@@ -43,7 +44,7 @@ struct AnimeCardView: View {
         .animation(.easeOut(duration: 0.12), value: isHoveringBar)
         .animation(.easeOut(duration: 0.12), value: isHoveringCard)
         .popover(isPresented: $showInfo, arrowEdge: .trailing) {
-            AnimeInfoPopover(entry: entry, onAdjust: onAdjust)
+            AnimeInfoPopover(entry: entry, links: $links, onAdjust: onAdjust)
         }
     }
 
@@ -138,9 +139,16 @@ struct AnimeCardView: View {
 
 struct AnimeInfoPopover: View {
     let entry: AnimeEntry
+    @Binding var links: [CustomLink]
     let onAdjust: (Int) -> Void
 
     @State private var showMoreInfo = false
+    @State private var linkEdit: LinkEdit?
+
+    private enum LinkEdit: Equatable {
+        case add
+        case edit(CustomLink.ID)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -165,13 +173,14 @@ struct AnimeInfoPopover: View {
                 StepButton(systemImage: "plus", color: .blue) { onAdjust(1) }
                     .help("Mark episode \(entry.progress + 1) as watched")
             }
-            if let url = entry.media.siteURL {
-                Link(destination: url) {
-                    Label("Open on AniList", systemImage: "arrow.up.right.square")
-                        .font(.system(size: 12, weight: .medium))
+            linksSection
+            HStack {
+                moreInfoToggle
+                Spacer()
+                if linkEdit == nil {
+                    addLinkButton
                 }
             }
-            moreInfoToggle
             if showMoreInfo {
                 moreInfoSection
             }
@@ -185,6 +194,60 @@ struct AnimeInfoPopover: View {
             return "Progress: \(entry.progress)/\(total)"
         }
         return "Progress: \(entry.progress)"
+    }
+
+    // MARK: Links
+
+    private var linksSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let url = entry.media.siteURL {
+                Link(destination: url) {
+                    Label("Open on AniList", systemImage: "arrow.up.right.square")
+                        .font(.system(size: 12, weight: .medium))
+                }
+            }
+            ForEach(links) { link in
+                if linkEdit == .edit(link.id) {
+                    CustomLinkEditor(link: link, onSave: saveLink, onDelete: { deleteLink(link) }) {
+                        linkEdit = nil
+                    }
+                } else {
+                    CustomLinkRow(link: link) { linkEdit = .edit(link.id) }
+                }
+            }
+            if linkEdit == .add {
+                CustomLinkEditor(link: nil, onSave: saveLink) { linkEdit = nil }
+            }
+        }
+    }
+
+    private var addLinkButton: some View {
+        Button { linkEdit = .add } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "plus")
+                    .font(.system(size: 8, weight: .bold))
+                Text("Add Link")
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.secondary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Add a custom link, like a streaming or download site")
+    }
+
+    private func saveLink(_ link: CustomLink) {
+        if let index = links.firstIndex(where: { $0.id == link.id }) {
+            links[index] = link
+        } else {
+            links.append(link)
+        }
+        linkEdit = nil
+    }
+
+    private func deleteLink(_ link: CustomLink) {
+        links.removeAll { $0.id == link.id }
+        linkEdit = nil
     }
 
     // MARK: More info
@@ -237,6 +300,91 @@ private struct InfoDetailRow: View {
                     .textSelection(.enabled)
             }
         }
+    }
+}
+
+private struct CustomLinkRow: View {
+    let link: CustomLink
+    let onEdit: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Link(destination: link.url) {
+                Label(link.displayName, systemImage: "link")
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+            }
+            .help(link.url.absoluteString)
+            Spacer(minLength: 0)
+            if isHovering {
+                Button(action: onEdit) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Edit link")
+            }
+        }
+        .onHover { isHovering = $0 }
+    }
+}
+
+private struct CustomLinkEditor: View {
+    let link: CustomLink?
+    let onSave: (CustomLink) -> Void
+    let onDelete: (() -> Void)?
+    let onCancel: () -> Void
+
+    @State private var urlText: String
+    @State private var name: String
+    @FocusState private var isURLFocused: Bool
+
+    init(
+        link: CustomLink?,
+        onSave: @escaping (CustomLink) -> Void,
+        onDelete: (() -> Void)? = nil,
+        onCancel: @escaping () -> Void
+    ) {
+        self.link = link
+        self.onSave = onSave
+        self.onDelete = onDelete
+        self.onCancel = onCancel
+        _urlText = State(initialValue: link?.url.absoluteString ?? "")
+        _name = State(initialValue: link?.name ?? "")
+    }
+
+    private var url: URL? { CustomLink.url(from: urlText) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            TextField("https://…", text: $urlText)
+                .focused($isURLFocused)
+            TextField("Name (optional)", text: $name)
+            HStack(spacing: 6) {
+                if let onDelete {
+                    Button("Delete", role: .destructive, action: onDelete)
+                }
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Save", action: save)
+                    .disabled(url == nil)
+            }
+        }
+        .textFieldStyle(.roundedBorder)
+        .font(.system(size: 11))
+        .controlSize(.small)
+        .onSubmit(save)
+        .onAppear { isURLFocused = true }
+    }
+
+    private func save() {
+        guard let url else { return }
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        onSave(CustomLink(id: link?.id ?? UUID(), name: trimmedName, url: url))
     }
 }
 

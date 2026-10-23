@@ -12,6 +12,8 @@ final class AniListStore: ObservableObject {
     @Published private(set) var refreshID = 0
 
     @Published private(set) var trackedIDs: Set<Int> = []
+    /// Keyed by media ID.
+    @Published private(set) var customLinks: [Int: [CustomLink]] = [:]
 
     var isAuthenticated: Bool { token != nil }
 
@@ -20,6 +22,7 @@ final class AniListStore: ObservableObject {
     var trackedPastEntries: [AnimeEntry] { pastEntries.filter(isTracked) }
 
     private static let trackedKey = "trackedMediaIDs"
+    private static let customLinksKey = "customLinks"
 
     func isTracked(_ entry: AnimeEntry) -> Bool { trackedIDs.contains(entry.media.id) }
 
@@ -28,6 +31,13 @@ final class AniListStore: ObservableObject {
             trackedIDs.insert(entry.media.id)
         }
         UserDefaults.standard.set(Array(trackedIDs), forKey: Self.trackedKey)
+    }
+
+    func links(for entry: AnimeEntry) -> [CustomLink] { customLinks[entry.media.id] ?? [] }
+
+    func setLinks(_ links: [CustomLink], for entry: AnimeEntry) {
+        customLinks[entry.media.id] = links.isEmpty ? nil : links
+        UserDefaults.standard.set(try? JSONEncoder().encode(customLinks), forKey: Self.customLinksKey)
     }
 
     private var userId: Int?
@@ -40,6 +50,8 @@ final class AniListStore: ObservableObject {
     init() {
         token = Keychain.load()
         trackedIDs = Set(UserDefaults.standard.array(forKey: Self.trackedKey) as? [Int] ?? [])
+        customLinks = UserDefaults.standard.data(forKey: Self.customLinksKey)
+            .flatMap { try? JSONDecoder().decode([Int: [CustomLink]].self, from: $0) } ?? [:]
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 900, repeats: true) { _ in
             Task { @MainActor in await self.refresh() }
         }
