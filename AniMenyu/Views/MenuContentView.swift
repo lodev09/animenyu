@@ -235,7 +235,7 @@ struct MenuContentView: View {
                         set: { store.setLinks($0, for: entry) }
                     )
                 ) { delta in
-                    Task { await store.adjust(entry, by: delta) }
+                    store.adjust(entry, by: delta)
                 }
             }
         }

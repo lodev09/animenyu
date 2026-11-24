@@ -43,6 +43,12 @@ final class AniListStore: ObservableObject {
     private var userId: Int?
     private var refreshTimer: Timer?
 
+    private static let saveDebounce: Duration = .milliseconds(600)
+    /// Keyed by entry ID.
+    private var pendingSaves: [Int: Task<Void, Never>] = [:]
+    /// Last server-confirmed progress for entries with unsaved steps, keyed by entry ID.
+    private var confirmedProgress: [Int: Int] = [:]
+
     private var client: AniListClient? {
         token.map(AniListClient.init(token:))
     }
@@ -97,22 +103,44 @@ final class AniListStore: ObservableObject {
         }
     }
 
-    func adjust(_ entry: AnimeEntry, by delta: Int) async {
+    func adjust(_ entry: AnimeEntry, by delta: Int) {
         guard let client, let index = entries.firstIndex(where: { $0.id == entry.id }) else { return }
-        let previous = entries[index].progress
-        let target = max(0, previous + delta)
-        guard target != previous else { return }
+        let current = entries[index].progress
+        let target = max(0, current + delta)
+        guard target != current else { return }
+        if confirmedProgress[entry.id] == nil {
+            confirmedProgress[entry.id] = current
+        }
         entries[index].progress = target
-        do {
-            let saved = try await client.saveProgress(entryId: entry.id, progress: target)
-            if let i = entries.firstIndex(where: { $0.id == entry.id }) {
+
+        pendingSaves[entry.id]?.cancel()
+        pendingSaves[entry.id] = Task {
+            try? await Task.sleep(for: Self.saveDebounce)
+            guard !Task.isCancelled else { return }
+            pendingSaves[entry.id] = nil
+
+            let result: Result<Int, Error>
+            do {
+                result = .success(try await client.saveProgress(entryId: entry.id, progress: target))
+            } catch {
+                result = .failure(error)
+            }
+
+            // A newer step was queued while saving; let it settle the final value.
+            if pendingSaves[entry.id] != nil {
+                if case .success(let saved) = result { confirmedProgress[entry.id] = saved }
+                return
+            }
+
+            let fallback = confirmedProgress.removeValue(forKey: entry.id)
+            guard let i = entries.firstIndex(where: { $0.id == entry.id }) else { return }
+            switch result {
+            case .success(let saved):
                 entries[i].progress = saved
+            case .failure(let error):
+                if let fallback { entries[i].progress = fallback }
+                errorMessage = error.localizedDescription
             }
-        } catch {
-            if let i = entries.firstIndex(where: { $0.id == entry.id }) {
-                entries[i].progress = previous
-            }
-            errorMessage = error.localizedDescription
         }
     }
 }
