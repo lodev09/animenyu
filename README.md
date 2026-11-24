@@ -14,6 +14,14 @@ A sleek macOS menu bar app for tracking your currently airing anime on [AniList]
 - 🔗 Click a card for details and a link to its AniList page
 - 🔐 Sign in with AniList via OAuth — token stored in your Keychain
 
+## Install
+
+```sh
+brew install --cask lodev09/tap/animenyu
+```
+
+Or download the DMG from [Releases](https://github.com/lodev09/animenyu/releases/latest). Requires Apple Silicon and macOS 14+.
+
 ## Requirements
 
 - macOS 14+

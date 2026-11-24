@@ -11,6 +11,9 @@ permissions:
 jobs:
   release:
     runs-on: macos-26
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha256: ${{ steps.checksum.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v4
 
@@ -24,7 +27,10 @@ jobs:
           p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
 
       - name: Set version from tag
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+        id: version
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Generate project
         run: xcodegen generate
@@ -71,8 +77,60 @@ jobs:
             --wait
           xcrun stapler staple "AniMenyu-$VERSION.dmg"
 
+      - name: Checksum DMG
+        id: checksum
+        run: echo "sha256=$(shasum -a 256 "AniMenyu-$VERSION.dmg" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: AniMenyu-*.dmg
           generate_release_notes: true
+
+  bump-cask:
+    name: Bump Homebrew cask
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+      SHA256: ${{ needs.release.outputs.sha256 }}
+      CASK: tap/Casks/animenyu.rb
+    steps:
+      - name: Check out tap
+        uses: actions/checkout@v4
+        with:
+          repository: lodev09/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      # A slower run for an older tag must not roll the cask back.
+      - name: Check cask version
+        id: check
+        run: |
+          CURRENT="$(sed -n -E 's/^  version "([^"]*)"$/\1/p' "$CASK")"
+          if [ "$CURRENT" != "$VERSION" ] && printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V -C; then
+            echo "bump=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Cask is at $CURRENT; skipping $VERSION"
+            echo "bump=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update cask
+        if: steps.check.outputs.bump == 'true'
+        run: |
+          sed -i -E \
+            -e "s/^  version \"[^\"]*\"$/  version \"$VERSION\"/" \
+            -e "s/^  sha256 \"[^\"]*\"$/  sha256 \"$SHA256\"/" \
+            "$CASK"
+          grep -q "^  version \"$VERSION\"$" "$CASK"
+          grep -q "^  sha256 \"$SHA256\"$" "$CASK"
+
+      - name: Push cask
+        if: steps.check.outputs.bump == 'true'
+        working-directory: tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "animenyu $VERSION"
+          git push
